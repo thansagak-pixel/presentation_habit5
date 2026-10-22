@@ -1,0 +1,752 @@
+/* ==========================================================================
+   base.css — tokens, stage layout, deck chrome, animation system.
+   Palette is inherited from the workspace design tokens
+   (assets/css/tokens.css): ink surfaces, orange accent, olive secondary.
+   ========================================================================== */
+
+:root {
+  /* surfaces & lines */
+  --ink-900: #0b0d0c;
+  --ink-800: #141816;
+  --ink-700: #1c211e;
+  --ink-600: #252b27;
+  --ink-500: #2e3531;
+  --line: #323a35;
+  --line-strong: #7a847d;
+
+  /* text */
+  --text-hi: #f2f4f1;
+  --text: #c3c9c2;
+  --text-dim: #9aa29a;
+
+  /* accents */
+  --accent: #e8642a;
+  --accent-hover: #f0713a;
+  --accent-ink: #0b0d0c;
+  --olive: #8a9663;
+  --olive-ink: #0b0d0c;
+  --focus: #ff9a5c;
+  --badge-accent-bg: #241a13;
+
+  /* type */
+  --font-display: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+
+  /* motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-micro: 120ms;
+  --dur-base: 220ms;
+  --dur-reveal: 620ms;
+
+  /* stage geometry */
+  --stage-w: 1280px;
+  --stage-h: 720px;
+  --scale: 1;
+  --gutter: 68px;
+}
+
+* { box-sizing: border-box; }
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--ink-900);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body::before {
+  /* room light: two soft pools behind the stage */
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(46% 40% at 78% 8%, rgba(232, 100, 42, 0.16), transparent 70%),
+    radial-gradient(44% 42% at 12% 96%, rgba(138, 150, 99, 0.14), transparent 70%);
+  filter: blur(10px);
+  animation: drift 26s var(--ease-out) infinite alternate;
+}
+
+@keyframes drift {
+  from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
+  to   { transform: translate3d(2%, 2%, 0) scale(1.06); }
+}
+
+::selection { background: var(--accent); color: var(--accent-ink); }
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ==========================================================================
+   STAGE — a fixed 1280x720 canvas scaled to fit the viewport.
+   Everything inside is authored in logical pixels, so the layout is
+   identical on a laptop, a projector and a phone.
+   ========================================================================== */
+
+#app {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  transition: padding-right 260ms var(--ease-out);
+}
+
+/* the notes panel is fixed to the viewport; shrink the stage beside it */
+body.notes-open #app { padding-right: min(400px, 42vw); }
+
+/* The frame takes the *scaled* size so the browser can centre it normally;
+   the stage inside keeps its logical 1280x720 size and is scaled from the
+   top-left corner. (Centring an oversized grid child gets clamped to the
+   start edge, which pushed the stage off-screen.) */
+.stage-frame {
+  position: relative;
+  width: 1280px;
+  height: 720px;
+}
+
+.stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--stage-w);
+  height: var(--stage-h);
+  transform: scale(var(--scale));
+  transform-origin: top left;
+  border-radius: 20px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 84% 0%, rgba(232, 100, 42, 0.10), transparent 58%),
+    radial-gradient(100% 80% at 4% 100%, rgba(138, 150, 99, 0.10), transparent 60%),
+    linear-gradient(165deg, #101412 0%, var(--ink-900) 58%, #080a09 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 40px 120px -40px rgba(0, 0, 0, 0.9),
+    0 0 140px -60px rgba(232, 100, 42, 0.5);
+}
+
+.stage::after {
+  /* fine grid + vignette, sits above the gradients, below content */
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(120% 100% at 50% 40%, #000 35%, transparent 100%);
+}
+
+/* ==========================================================================
+   SLIDES
+   ========================================================================== */
+
+.slide {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: 58px var(--gutter) 88px;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(14px) scale(0.994);
+  filter: blur(6px);
+  transition:
+    opacity 420ms var(--ease-out),
+    transform 520ms var(--ease-out),
+    filter 420ms var(--ease-out),
+    visibility 0s linear 520ms;
+}
+
+.slide.active {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  filter: none;
+  transition-delay: 0s;
+}
+
+.slide.leaving {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.996);
+  filter: blur(5px);
+}
+
+/* the slide stack */
+.slides { position: absolute; inset: 0; }
+
+/* Slides whose root is a plain <div> use .slide-body so the main block can
+   flex to fill the 720px height instead of leaving a dead band at the
+   bottom of the slide. */
+.slide-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* --- reusable type ---------------------------------------------------- */
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.kicker::before {
+  content: "";
+  width: 26px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.slide-title {
+  margin: 16px 0 0;
+  font-size: 50px;
+  line-height: 1.04;
+  letter-spacing: -0.022em;
+  font-weight: 700;
+  color: var(--text-hi);
+  max-width: 19ch;
+}
+
+.slide-title.wide { max-width: 26ch; }
+.slide-title.xwide { max-width: 34ch; }
+
+.lede {
+  margin: 16px 0 0;
+  font-size: 20px;
+  line-height: 1.55;
+  color: var(--text);
+  max-width: 62ch;
+}
+
+.muted { color: var(--text-dim); }
+.accent { color: var(--accent); }
+.olive { color: var(--olive); }
+.hi { color: var(--text-hi); }
+.mono { font-family: var(--font-mono); }
+
+.ghost-num {
+  position: absolute;
+  right: var(--gutter);
+  bottom: 30px;
+  font-size: 190px;
+  font-weight: 800;
+  line-height: 0.8;
+  letter-spacing: -0.05em;
+  color: rgba(242, 244, 241, 0.035);
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+
+.slide > * { position: relative; z-index: 1; }
+
+/* --- reveal animation system ------------------------------------------ */
+[data-anim] { opacity: 0; }
+
+.slide.active [data-anim] {
+  animation: rise var(--dur-reveal) var(--ease-out) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes pop {
+  0%   { opacity: 0; transform: scale(0.86); }
+  60%  { opacity: 1; transform: scale(1.035); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-26px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes drawLine {
+  from { stroke-dashoffset: var(--len, 2000); }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50%      { opacity: 0.9;  transform: scale(1.06); }
+}
+
+@keyframes ringWave {
+  0%   { transform: scale(0.6); opacity: 0.85; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-9px); }
+}
+
+.anim-pop { animation-name: pop !important; }
+.anim-left { animation-name: slideInLeft !important; }
+
+/* ==========================================================================
+   DECK CHROME — progress rail, footer, hints
+   ========================================================================== */
+
+.chrome {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.progress-rail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--olive), var(--accent));
+  box-shadow: 0 0 14px rgba(232, 100, 42, 0.7);
+  transition: width 480ms var(--ease-out);
+}
+
+.rail-ticks {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  display: flex;
+}
+
+.rail-ticks i {
+  flex: 1;
+  border-right: 1px solid rgba(11, 13, 12, 0.85);
+}
+
+.deck-footer {
+  position: absolute;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.deck-footer .brand { color: rgba(242, 244, 241, 0.34); }
+.deck-footer .brand b { color: var(--accent); font-weight: 700; }
+
+.counter {
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.counter b { color: var(--text-hi); font-weight: 600; }
+
+.nav-hint {
+  position: absolute;
+  right: var(--gutter);
+  bottom: 52px;
+  font-size: 12px;
+  color: rgba(242, 244, 241, 0.32);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  transition: opacity 400ms var(--ease-out);
+}
+
+.nav-hint kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.nav-hint.dim { opacity: 0; }
+
+/* ==========================================================================
+   OVERLAYS — overview grid, notes panel, help
+   ========================================================================== */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(6, 8, 7, 0.93);
+  backdrop-filter: blur(14px);
+  display: none;
+  flex-direction: column;
+  padding: 30px 38px 34px;
+}
+
+.overlay.open { display: flex; animation: fadeIn 260ms var(--ease-out) both; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.overlay-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.overlay-head h2 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-hi);
+  font-weight: 700;
+}
+
+.overlay-head p { margin: 0; font-size: 12px; color: var(--text-dim); letter-spacing: 0.08em; }
+
+.ov-grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 260px);
+  grid-auto-rows: 181px;
+  justify-content: center;
+  gap: 18px;
+  align-content: start;
+  padding-right: 6px;
+}
+
+.ov-cell {
+  position: relative;
+  display: block;
+  width: 260px;
+  height: 181px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--ink-800);
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: transform 200ms var(--ease-out), border-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+}
+
+.ov-cell:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent);
+  box-shadow: 0 16px 40px -18px rgba(232, 100, 42, 0.8);
+}
+
+.ov-cell.current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+.ov-thumb {
+  position: relative;
+  width: 260px;
+  height: 146px;
+  overflow: hidden;
+  background: var(--ink-900);
+  pointer-events: none;
+}
+
+.ov-thumb .slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--stage-w);
+  height: var(--stage-h);
+  opacity: 1 !important;
+  visibility: visible !important;
+  filter: none !important;
+  transform-origin: top left;
+  transform: scale(0.203125);
+  transition: none;
+  padding: 58px var(--gutter) 88px;
+}
+
+.ov-thumb .slide [data-anim] { opacity: 1 !important; animation: none !important; }
+
+.ov-meta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 33px;
+  padding: 0 12px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.ov-meta b {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.ov-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --- notes panel ------------------------------------------------------- */
+.notes-panel {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: min(400px, 42vw);
+  z-index: 95;
+  background: var(--ink-800);
+  border-left: 1px solid var(--line);
+  padding: 26px 28px;
+  overflow-y: auto;
+  display: none;
+  box-shadow: -30px 0 70px -30px rgba(0, 0, 0, 0.9);
+}
+
+.notes-panel.open { display: block; animation: slideNotes 300ms var(--ease-out) both; }
+
+@keyframes slideNotes { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.notes-panel h3 {
+  margin: 0 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.notes-panel .notes-title {
+  font-size: 19px;
+  color: var(--text-hi);
+  font-weight: 650;
+  margin: 0 0 14px;
+  line-height: 1.25;
+}
+
+.notes-panel p {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text);
+  margin: 0 0 18px;
+}
+
+.notes-panel .hint {
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+/* --- help modal -------------------------------------------------------- */
+.help-card {
+  margin: auto;
+  width: min(620px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--ink-800);
+  padding: 30px 34px 26px;
+}
+
+.help-card h2 {
+  margin: 0 0 18px;
+  font-size: 15px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-hi);
+}
+
+.help-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(50, 58, 53, 0.6);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.help-row:last-child { border-bottom: 0; }
+.help-row kbd {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-hi);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   SHARED SLIDE COMPONENTS
+   ========================================================================== */
+
+.card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card.accent-top::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--accent);
+}
+
+.card.olive-top::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--olive);
+}
+
+.card h3 {
+  margin: 0 0 8px;
+  font-size: 19px;
+  color: var(--text-hi);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.card p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.tag {
+  display: inline-block;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--badge-accent-bg);
+  color: var(--accent-hover);
+  border: 1px solid rgba(232, 100, 42, 0.28);
+}
+
+.tag.olive {
+  background: rgba(138, 150, 99, 0.1);
+  color: var(--olive);
+  border-color: rgba(138, 150, 99, 0.3);
+}
+
+.tag.plain {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+  border-color: var(--line);
+}
+
+.quote-block {
+  font-size: 25px;
+  line-height: 1.38;
+  color: var(--text-hi);
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+
+.quote-src {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+
+/* buttons */
+.btn {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-hi);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);
+}
+
+.btn:hover { background: rgba(255, 255, 255, 0.11); border-color: var(--line-strong); }
+.btn:active { transform: translateY(1px); }
+
+.btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--line);
+  color: var(--text-dim);
+}
+
+.btn:disabled:hover { background: rgba(255, 255, 255, 0.04); border-color: var(--line); }
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+.btn.ghost { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  body::before { animation: none; }
+}

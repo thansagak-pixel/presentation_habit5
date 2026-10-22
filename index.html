@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Habit 5 — Seek First to Understand, Then to Be Understood</title>
+<meta name="description" content="A presentation on Habit 5 of The 7 Habits of Highly Effective Teens: Seek First to Understand, Then to Be Understood.">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/slides.css">
+</head>
+<body>
+
+<div id="app">
+  <div class="stage-frame" id="stage-frame">
+    <div class="stage" id="stage">
+      <div class="slides" id="slides"></div>
+
+      <!-- deck chrome (inside the stage so it scales with the slide) -->
+      <div class="chrome" aria-hidden="true">
+        <div class="progress-rail">
+          <div class="progress-fill" id="progress-fill"></div>
+          <div class="rail-ticks" id="rail-ticks"></div>
+        </div>
+        <div class="deck-footer">
+          <span class="brand"><b>HABIT 5</b> · Seek First to Understand, Then to Be Understood</span>
+          <span class="counter"><b id="counter-current">01</b> / <span id="counter-total">17</span></span>
+        </div>
+      </div>
+
+      <div class="nav-hint" id="nav-hint">
+        <kbd>→</kbd><span>next</span><kbd>O</kbd><span>overview</span><kbd>S</kbd><span>notes</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- overview grid -->
+<div class="overlay" id="overview">
+  <div class="overlay-head">
+    <h2>All slides</h2>
+    <p>Click a slide to jump · press O or Esc to close</p>
+  </div>
+  <div class="ov-grid" id="ov-grid"></div>
+</div>
+
+<!-- help -->
+<div class="overlay" id="help">
+  <div class="help-card">
+    <h2>Keyboard</h2>
+    <div class="help-row"><span>Next slide</span><kbd>→ ↓ Space PageDown</kbd></div>
+    <div class="help-row"><span>Previous slide</span><kbd>← ↑ PageUp</kbd></div>
+    <div class="help-row"><span>First / last slide</span><kbd>Home / End</kbd></div>
+    <div class="help-row"><span>Overview of all slides</span><kbd>O</kbd></div>
+    <div class="help-row"><span>Speaker notes</span><kbd>S</kbd></div>
+    <div class="help-row"><span>Fullscreen</span><kbd>F</kbd></div>
+    <div class="help-row"><span>Print / export to PDF</span><kbd>Ctrl / Cmd + P</kbd></div>
+    <div class="help-row"><span>Close overlay</span><kbd>Esc</kbd></div>
+    <div class="help-row"><span>Close this panel</span><kbd>?</kbd></div>
+  </div>
+</div>
+
+<!-- speaker notes -->
+<aside class="notes-panel" id="notes-panel">
+  <h3>Speaker notes</h3>
+  <p class="notes-title" id="notes-title"></p>
+  <p id="notes-body"></p>
+  <div class="hint">Press S to hide. Press O for the slide overview. Click the left edge of the slide to go back.</div>
+</aside>
+
+<noscript>
+  <div style="padding:40px;font-family:system-ui;color:#c3c9c2">
+    This presentation needs JavaScript to run. Enable it and reload the page.
+  </div>
+</noscript>
+
+<script src="js/content.js"></script>
+<script src="js/slides-def.js"></script>
+<script src="js/render-1.js"></script>
+<script src="js/render-2.js"></script>
+<script src="js/render-3.js"></script>
+<script src="js/deck.js"></script>
+</body>
+</html>
